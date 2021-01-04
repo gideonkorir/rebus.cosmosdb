@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
+MinimumVisualStudioVersion = 15.0.26124.0
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rebus.CosmosDb", "Rebus.CosmosDb\Rebus.CosmosDb.csproj", "{57B7B2DB-8EC1-4E51-BBAB-46F07FB6E4EE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rebus.CosmosDb.Tests", "Rebus.CosmosDb.Tests\Rebus.CosmosDb.Tests.csproj", "{33DF5DAE-3DDE-4C97-9281-780B9CA4E628}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{57B7B2DB-8EC1-4E51-BBAB-46F07FB6E4EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57B7B2DB-8EC1-4E51-BBAB-46F07FB6E4EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57B7B2DB-8EC1-4E51-BBAB-46F07FB6E4EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57B7B2DB-8EC1-4E51-BBAB-46F07FB6E4EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33DF5DAE-3DDE-4C97-9281-780B9CA4E628}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33DF5DAE-3DDE-4C97-9281-780B9CA4E628}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33DF5DAE-3DDE-4C97-9281-780B9CA4E628}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33DF5DAE-3DDE-4C97-9281-780B9CA4E628}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7534B40C-7C33-4A7D-82FE-7E23A3AD41B2}
+	EndGlobalSection
+EndGlobal
