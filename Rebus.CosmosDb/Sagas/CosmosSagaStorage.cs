@@ -25,7 +25,7 @@ namespace Rebus.CosmosDb.Sagas
             PartitionKey = "rbs2-cosmos-saga-pk",
             EtagKey = "rbs2-cosmos-saga-etag";
 
-        private static readonly Func<Type, Container, Task<Action<JObject, string>>> _partitionKeySetterFactory = CreateSetPartitionKeyAction;
+        private static readonly Func<Type, Container, Task<Action<JObject, string>>> _partitionKeySetterFactory = (type, container) => Util.CreateSetPartitionKeyAction(type, container);
 
         private readonly ConcurrentDictionary<Type, PropertyInfo> _correlationProperties = new ConcurrentDictionary<Type, PropertyInfo>();
         private readonly ConcurrentDictionary<Type, Task<Action<JObject, string>>> _partitionKeySetter = new ConcurrentDictionary<Type, Task<Action<JObject, string>>>();
@@ -38,8 +38,8 @@ namespace Rebus.CosmosDb.Sagas
         public CosmosSagaStorage(Func<Type, Task<Container>> containerFactory, CosmosSagaStorageOptions? options = null)
         {
             _containerFactory = containerFactory ?? throw new ArgumentNullException(nameof(containerFactory));
-            _getContextBag = options?.ContextBagFactory ?? new Func<ConcurrentDictionary<string, object>>(GetContextBag);
-            _serializerFactory = options?.SerializerFactory ?? new Func<Type, JsonSerializer>(DefaultSerializerFactory);
+            _getContextBag = options?.ContextBagFactory ?? new Func<ConcurrentDictionary<string, object>>(Util.GetContextBag);
+            _serializerFactory = options?.SerializerFactory ?? new Func<Type, JsonSerializer>(Util.DefaultSerializerFactory);
             _partitionKeyValueBuilder = options?.PartitionKeyValueBuilder ?? new Func<Type, string, object, string>(DefaultPartitionKeyBuilder);
         }
 
@@ -178,57 +178,6 @@ namespace Rebus.CosmosDb.Sagas
                 throw new ArgumentException($"More than one correlation property was defined for saga data {sagaDataType.FullName}");
             }
             return prop;
-        }
-
-        static async Task<Action<JObject, string>> CreateSetPartitionKeyAction(Type sagaDataType, Container container)
-        {
-            var containerProperties = await container.ReadContainerAsync().ConfigureAwait(false);
-            var partitionKeyPath = containerProperties.Resource.PartitionKeyPath;
-            var segments = partitionKeyPath.Split("/", StringSplitOptions.RemoveEmptyEntries);
-            if (string.Equals(segments[0], "sagadata", StringComparison.OrdinalIgnoreCase))
-            {
-                return (obj, value) => { };
-            }
-            //return the action
-            return (obj, value) =>
-            {
-                if (segments.Length == 1)
-                {
-                    obj.Add(segments[0], value);
-                }
-                else
-                {
-                    JObject current = new JObject();
-                    obj.Add(segments[0], current);
-
-                    for (int i = 1; i < segments.Length - 1; i++)
-                    {
-                        var temp = new JObject();
-                        current.Add(segments[i], temp);
-                        current = temp;
-                    }
-
-                    current.Add(segments[^1], value);
-                }
-            };
-        }
-
-        static ConcurrentDictionary<string, object> GetContextBag()
-        {
-            var ctx = MessageContext.Current;
-            if(ctx == null)
-            {
-                throw new InvalidOperationException($"MessageContext.Current is null. The default ContextBagFactory only works when saga storage is called during normal message processing, if you are testing please provide options with ${nameof(CosmosSagaStorageOptions.ContextBagFactory)} set");
-            }
-            return ctx.TransactionContext.Items;
-        }
-
-        static JsonSerializer DefaultSerializerFactory(Type sagaDataType)
-        {
-            return new JsonSerializer()
-            {
-                ContractResolver = new CamelCasePropertyNamesContractResolver()
-            };
         }
 
         static string DefaultPartitionKeyBuilder(Type sagaDataType, string propertyName, object propertyValue)

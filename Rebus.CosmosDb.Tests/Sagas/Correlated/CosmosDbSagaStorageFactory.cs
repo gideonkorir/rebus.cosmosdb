@@ -7,7 +7,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Rebus.CosmosDb.Tests.Sagas
+namespace Rebus.CosmosDb.Tests.Sagas.Correlated
 {
     public class CosmosDbSagaStorageFactory : ISagaStorageFactory
     {

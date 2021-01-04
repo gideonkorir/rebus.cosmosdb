@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
 using Rebus.Tests.Contracts.Sagas;
 
-namespace Rebus.CosmosDb.Tests.Sagas
+namespace Rebus.CosmosDb.Tests.Sagas.Correlated
 {
     [TestFixture, Category(Categories.CosmosDb)]
     public class CosmosDbSagaStorageBasicLoadAndSaveAndFindOperations : BasicLoadAndSaveAndFindOperations<CosmosDbSagaStorageFactory> { }
