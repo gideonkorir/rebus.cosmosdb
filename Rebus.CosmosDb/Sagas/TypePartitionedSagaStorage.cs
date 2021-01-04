@@ -101,8 +101,8 @@ namespace Rebus.CosmosDb.Sagas
             var pk = _typeInfoProvider.GetPartitionKey(sagaDataType);
             var container = await _containerFactory(sagaDataType).ConfigureAwait(false);
 
-            var dbPropName = "_" + propertyName;
-            var query = new QueryDefinition($"select * from c where c.{dbPropName} = @propValue")
+            var dbPropName = "$" + propertyName;
+            var query = new QueryDefinition($"select * from c where c[\"{dbPropName}\"] = @propValue")
                 .WithParameter("@propValue", propertyValue);
             var resp = container.GetItemQueryIterator<JObject>(query, null, new QueryRequestOptions()
             {
@@ -200,7 +200,7 @@ namespace Rebus.CosmosDb.Sagas
             }, serializer);
             foreach(var p in correlationProperties)
             {
-                obj["_" + p.PropertyName] = new JValue(GetPropertyValue(sagaData, p.PropertyName));
+                obj["$" + p.PropertyName] = new JValue(GetPropertyValue(sagaData, p.PropertyName));
             }
             var setter = await _partitionKeySetter.GetOrAdd(sagaData.GetType(), _partitionKeySetterFactory, container);
             setter(obj, partitionKey);
