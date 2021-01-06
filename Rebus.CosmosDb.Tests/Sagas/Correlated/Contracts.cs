@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using Rebus.Tests.Contracts.Sagas;
+using Rebus.Tests.Contracts.Sagas.SingleCorrelated;
 
 namespace Rebus.CosmosDb.Tests.Sagas.Correlated
 {

@@ -50,6 +50,9 @@ namespace Rebus.CosmosDb.Sagas
             var pk = (string)ctxBag[PartitionKey];
             var etag = (string)ctxBag[EtagKey];
 
+            //fix: BasicLoadAndSaveAndFindOperations.BasicLoadAndSaveAndFindOperations
+            sagaData.Revision++;
+
             var container = await _containerFactory(sagaData.GetType()).ConfigureAwait(false);
             var opts = new ItemRequestOptions()
             {
@@ -107,25 +110,22 @@ namespace Rebus.CosmosDb.Sagas
                 throw new InvalidOperationException($"Attempted to insert saga data with ID {sagaData.Id} and revision {sagaData.Revision}, but revision must be 0 on first insert!");
             }
 
-            var correlationProperty = GetCorrelationProperty(sagaData.GetType(), correlationProperties);
-            var prop = _correlationProperties.GetOrAdd(sagaData.GetType(), (type, name) => type.GetProperty(name)!, correlationProperty.PropertyName);
-            var value = prop.GetValue(sagaData)!;
+            var (propertyName, propertyValue) = GetCorreationPropertyValue(sagaData, correlationProperties);
+
+            var pk = _partitionKeyValueBuilder(sagaData.GetType(), propertyName, propertyValue);
 
             var container = await _containerFactory(sagaData.GetType()).ConfigureAwait(false);
             var action = _partitionKeySetter.GetOrAdd(sagaData.GetType(), _partitionKeySetterFactory, container);
 
-            var pk = _partitionKeyValueBuilder(sagaData.GetType(), prop.Name, value);
             var obj = await CreateEntity(sagaData, action, pk).ConfigureAwait(false);          
             await container.CreateItemAsync(obj, new PartitionKey(pk)).ConfigureAwait(false);
         }
 
         public async Task Update(ISagaData sagaData, IEnumerable<ISagaCorrelationProperty> correlationProperties)
         {
-            var correlationProperty = GetCorrelationProperty(sagaData.GetType(), correlationProperties);
-            var prop = _correlationProperties.GetOrAdd(sagaData.GetType(), (type, name) => type.GetProperty(name)!, correlationProperty.PropertyName);
-            var value = prop.GetValue(sagaData)!;
+            var (propertyName, propertyValue) = GetCorreationPropertyValue(sagaData, correlationProperties);
 
-            var pk = _partitionKeyValueBuilder(sagaData.GetType(), prop.Name, value);
+            var pk = _partitionKeyValueBuilder(sagaData.GetType(), propertyName, propertyValue);
             
             var container = await _containerFactory(sagaData.GetType()).ConfigureAwait(false);
             var action = _partitionKeySetter.GetOrAdd(sagaData.GetType(), _partitionKeySetterFactory, container);
@@ -148,6 +148,33 @@ namespace Rebus.CosmosDb.Sagas
             }
         }
 
+        private (string property, object value) GetCorreationPropertyValue(ISagaData sagaData, IEnumerable<ISagaCorrelationProperty> correlationProperties)
+        {
+            var correlationProperty = GetCorrelationProperty(sagaData.GetType(), correlationProperties);
+            var prop = _correlationProperties.GetOrAdd(sagaData.GetType(), (type, name) => type.GetProperty(name)!, correlationProperty.PropertyName);
+            if(!string.Equals(prop.Name, correlationProperty.PropertyName))
+            {
+                throw new InvalidOperationException($"Invalid saga correlation configuration. Looks like you are trying to store saga {sagaData.Id} using correlation property {correlationProperty.PropertyName} but saga data of the same type was stored using correlation property {prop.Name}. You can only use a single correlation property per saga data type");
+            }
+            var value = prop.GetValue(sagaData)!;
+            return (prop.Name, value);
+
+            static ISagaCorrelationProperty GetCorrelationProperty(Type sagaDataType, IEnumerable<ISagaCorrelationProperty> correlationProperties)
+            {
+                using var enumerator = correlationProperties.GetEnumerator();
+                if (!enumerator.MoveNext())
+                {
+                    throw new ArgumentException($"You must define exactly one correlation property for saga data {sagaDataType.FullName}. The correlation property will be used as the partition key for your saga");
+                }
+                var prop = enumerator.Current;
+                if (enumerator.MoveNext())
+                {
+                    throw new ArgumentException($"More than one correlation property was defined for saga data {sagaDataType.FullName}");
+                }
+                return prop;
+            }
+        }
+
         private async Task<JObject> CreateEntity(ISagaData sagaData, Task<Action<JObject, string>> setPartitionKey, string partitionKey, bool deleted = false)
         {
             var obj = JObject.FromObject(new
@@ -165,20 +192,7 @@ namespace Rebus.CosmosDb.Sagas
             return obj; 
         }
 
-        static ISagaCorrelationProperty GetCorrelationProperty(Type sagaDataType, IEnumerable<ISagaCorrelationProperty> correlationProperties)
-        {
-            using var enumerator = correlationProperties.GetEnumerator();
-            if(!enumerator.MoveNext())
-            {
-                throw new ArgumentException($"You must define exactly one correlation property for saga data {sagaDataType.FullName}. The correlation property will be used as the partition key for your saga");
-            }
-            var prop = enumerator.Current;
-            if(enumerator.MoveNext())
-            {
-                throw new ArgumentException($"More than one correlation property was defined for saga data {sagaDataType.FullName}");
-            }
-            return prop;
-        }
+        
 
         static string DefaultPartitionKeyBuilder(Type sagaDataType, string propertyName, object propertyValue)
         {
