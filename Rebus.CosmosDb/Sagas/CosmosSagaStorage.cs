@@ -31,21 +31,21 @@ namespace Rebus.CosmosDb.Sagas
         private readonly ConcurrentDictionary<Type, Task<Action<JObject, string>>> _partitionKeySetter = new ConcurrentDictionary<Type, Task<Action<JObject, string>>>();
 
         private readonly Func<Type, Task<Container>> _containerFactory;
-        private readonly Func<ConcurrentDictionary<string, object>> _getContextBag;
+        private readonly IContextBagProvider _contextBagProvider;
         private readonly Func<Type, JsonSerializer> _serializerFactory;
         private readonly Func<Type, string, object, string> _partitionKeyValueBuilder;
 
-        public CosmosSagaStorage(Func<Type, Task<Container>> containerFactory, CosmosSagaStorageOptions? options = null)
+        public CosmosSagaStorage(Func<Type, Task<Container>> containerFactory, IContextBagProvider? contextBagProvider = null, CosmosSagaStorageOptions? options = null)
         {
             _containerFactory = containerFactory ?? throw new ArgumentNullException(nameof(containerFactory));
-            _getContextBag = options?.ContextBagFactory ?? new Func<ConcurrentDictionary<string, object>>(Util.GetContextBag);
+            _contextBagProvider = contextBagProvider ?? new MessageContextBagProvider();
             _serializerFactory = options?.SerializerFactory ?? new Func<Type, JsonSerializer>(Util.DefaultSerializerFactory);
             _partitionKeyValueBuilder = options?.PartitionKeyValueBuilder ?? new Func<Type, string, object, string>(DefaultPartitionKeyBuilder);
         }
 
         public async Task Delete(ISagaData sagaData)
         {
-            var ctxBag = _getContextBag();
+            var ctxBag = _contextBagProvider.ContextBag;
             var id = (string)ctxBag[IdKey];
             var pk = (string)ctxBag[PartitionKey];
             var etag = (string)ctxBag[EtagKey];
@@ -80,7 +80,7 @@ namespace Rebus.CosmosDb.Sagas
 
             var pk = _partitionKeyValueBuilder(sagaDataType, propertyName, propertyValue);
             var id = GetSagaId(sagaDataType, pk);
-            var ctxBag = _getContextBag();
+            var ctxBag = _contextBagProvider.ContextBag;
             try
             {
                 var response = await container.ReadItemAsync<JObject>(id, new PartitionKey(pk)).ConfigureAwait(false);
@@ -132,7 +132,7 @@ namespace Rebus.CosmosDb.Sagas
 
             sagaData.Revision++;
             var obj = await CreateEntity(sagaData, action, pk);
-            var etag = (string)_getContextBag()[EtagKey];
+            var etag = (string)_contextBagProvider.ContextBag[EtagKey];
             try
             {
                 var id = GetSagaId(sagaData.GetType(), pk);
@@ -191,8 +191,6 @@ namespace Rebus.CosmosDb.Sagas
             action(obj, partitionKey);
             return obj; 
         }
-
-        
 
         static string DefaultPartitionKeyBuilder(Type sagaDataType, string propertyName, object propertyValue)
         {

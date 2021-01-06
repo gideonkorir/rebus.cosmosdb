@@ -18,9 +18,6 @@ namespace Rebus.CosmosDb.Tests.Sagas.Correlated
         readonly CosmosClient _client;
         readonly Container _container;
 
-        static readonly AsyncLocal<ConcurrentDictionary<string, object>> _items
-            = new AsyncLocal<ConcurrentDictionary<string, object>>();
-
 
         public CosmosDbSagaStorageFactory()
         {
@@ -50,11 +47,7 @@ namespace Rebus.CosmosDb.Tests.Sagas.Correlated
 
         public ISagaStorage GetSagaStorage()
         {
-            _items.Value = new ConcurrentDictionary<string, object>();
-            return new CosmosSagaStorage(type => Task.FromResult(_container), new CosmosSagaStorageOptions()
-            {
-                ContextBagFactory = () => _items.Value
-            });
+            return new CosmosSagaStorage(type => Task.FromResult(_container), new TestContextBagProvider(), null);
         }
 
         public void CleanUp()

@@ -13,16 +13,6 @@ namespace Rebus.CosmosDb.Sagas
 {
     internal static class Util
     {
-        public static ConcurrentDictionary<string, object> GetContextBag()
-        {
-            var ctx = MessageContext.Current;
-            if (ctx == null)
-            {
-                throw new InvalidOperationException($"MessageContext.Current is null. The default ContextBagFactory only works when saga storage is called during normal message processing, if you are testing please provide options with ${nameof(CosmosSagaStorageOptions.ContextBagFactory)} set");
-            }
-            return ctx.TransactionContext.Items;
-        }
-
         public static JsonSerializer DefaultSerializerFactory(Type sagaDataType)
         {
             return new JsonSerializer()

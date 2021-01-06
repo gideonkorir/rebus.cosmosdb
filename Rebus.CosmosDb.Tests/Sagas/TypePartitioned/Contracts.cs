@@ -34,11 +34,11 @@ namespace Rebus.CosmosDb.Tests.Sagas.TypePartitioned
             var storage = factory.GetSagaStorage();
             await storage.Insert(data, _noCorrelationProperties);
             //insert
-            Assert.False(TypePartitionedCosmosDbSagaStorageFactory.Items.Value.TryGetValue(TypePartitionedSagaStorage.EtagKey, out _));
+            Assert.False(TestContextBagProvider.Items.Value.TryGetValue(TypePartitionedSagaStorage.EtagKey, out _));
 
             //find
             _ = await storage.Find(typeof(TestSagaData), nameof(ISagaData.Id), data.Id);
-            Assert.True(TypePartitionedCosmosDbSagaStorageFactory.Items.Value.TryGetValue(TypePartitionedSagaStorage.EtagKey, out _));
+            Assert.True(TestContextBagProvider.Items.Value.TryGetValue(TypePartitionedSagaStorage.EtagKey, out _));
         }
 
         class TestSagaData : ISagaData

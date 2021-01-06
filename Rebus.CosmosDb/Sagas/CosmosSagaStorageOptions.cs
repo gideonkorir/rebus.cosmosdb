@@ -8,11 +8,6 @@ namespace Rebus.CosmosDb.Sagas
     public class CosmosSagaStorageOptions
     {
         /// <summary>
-        /// Retrieves the current IMessageContext. If not provided
-        /// we use () => MessageContext.Current
-        /// </summary>
-        public Func<ConcurrentDictionary<string, object>>? ContextBagFactory { get; set; }
-        /// <summary>
         /// Serializer factory, given saga data type return a JsonSerializer
         /// instance that will be used to serialize the saga data. The default 
         /// serializer uses <see cref="Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver"/>

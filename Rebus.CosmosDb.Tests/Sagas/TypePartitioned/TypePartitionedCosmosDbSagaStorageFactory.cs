@@ -18,9 +18,6 @@ namespace Rebus.CosmosDb.Tests.Sagas.TypePartitioned
         readonly CosmosClient _client;
         readonly Container _container;
 
-        internal static readonly AsyncLocal<ConcurrentDictionary<string, object>> Items
-            = new AsyncLocal<ConcurrentDictionary<string, object>>();
-
 
         public TypePartitionedCosmosDbSagaStorageFactory()
         {
@@ -50,14 +47,10 @@ namespace Rebus.CosmosDb.Tests.Sagas.TypePartitioned
 
         public ISagaStorage GetSagaStorage()
         {
-            Items.Value = new ConcurrentDictionary<string, object>();
             return new TypePartitionedSagaStorage(
                 (type) => Task.FromResult(_container),
-                new DefaultSagaDataTypeInfoProvider(CosmosPropertyNamingPolicy.Default),
-                new TypePartitionedSagaStorageOptions()
-                {
-                    ContextBagFactory = () => Items.Value
-                }
+                new TestContextBagProvider(),
+                null
                 ); ;
         }
 

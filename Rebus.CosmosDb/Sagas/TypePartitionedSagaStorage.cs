@@ -25,24 +25,23 @@ namespace Rebus.CosmosDb.Sagas
 
         private readonly ConcurrentDictionary<Type, Task<Action<JObject, string>>> _partitionKeySetter = new ConcurrentDictionary<Type, Task<Action<JObject, string>>>();
 
-        private readonly IProvideSagaDataTypeInfo _typeInfoProvider;
+        private readonly Func<Type, string> _partitionKeyFactory;
         private readonly Func<Type, JsonSerializer> _serializerFactory;
         private readonly Func<Type, Task<Container>> _containerFactory;
-        private readonly Func<ConcurrentDictionary<string, object>> _getContextBag;
+        private readonly IContextBagProvider _contextBagProvider;
 
-        public TypePartitionedSagaStorage(Func<Type, Task<Container>> containerFactory,
-            IProvideSagaDataTypeInfo typeInfoProvider, TypePartitionedSagaStorageOptions? options = null)
+        public TypePartitionedSagaStorage(Func<Type, Task<Container>> containerFactory, IContextBagProvider? contextBagProvider = null, TypePartitionedSagaStorageOptions? options = null)
         {
             _containerFactory = containerFactory ?? throw new ArgumentNullException(nameof(containerFactory));
-            _typeInfoProvider = typeInfoProvider ?? throw new ArgumentNullException(nameof(typeInfoProvider));
+            _partitionKeyFactory = options?.PartitionKeyFactory ?? new Func<Type, string>((type) => type.FullName);
             _serializerFactory = options?.SerializerFactory ?? Util.DefaultSerializerFactory;
-            _getContextBag = options?.ContextBagFactory ?? Util.GetContextBag;
+            _contextBagProvider = contextBagProvider ?? new MessageContextBagProvider();
         }
 
 
         public async Task Delete(ISagaData sagaData)
         {
-            var pk = _typeInfoProvider.GetPartitionKey(sagaData.GetType());
+            var pk = _partitionKeyFactory(sagaData.GetType());
             var id = sagaData.Id.ToString("D", CultureInfo.InvariantCulture);
             var container = await _containerFactory(sagaData.GetType()).ConfigureAwait(false);
             var etag = GetEtag();
@@ -80,7 +79,7 @@ namespace Rebus.CosmosDb.Sagas
 
         private async Task<ISagaData?> Read(Type sagaDataType, string propertyName, object propertyValue)
         {
-            var pk = _typeInfoProvider.GetPartitionKey(sagaDataType);
+            var pk = _partitionKeyFactory(sagaDataType);
             var container = await _containerFactory(sagaDataType).ConfigureAwait(false);
             try
             {
@@ -99,7 +98,7 @@ namespace Rebus.CosmosDb.Sagas
 
         private async Task<ISagaData?> Query(Type sagaDataType, string propertyName, object propertyValue)
         {
-            var pk = _typeInfoProvider.GetPartitionKey(sagaDataType);
+            var pk = _partitionKeyFactory(sagaDataType);
             var container = await _containerFactory(sagaDataType).ConfigureAwait(false);
 
             var dbPropName = "$" + propertyName;
@@ -147,7 +146,7 @@ namespace Rebus.CosmosDb.Sagas
                 throw new InvalidOperationException($"Attempted to insert saga data with ID {sagaData.Id} and revision {sagaData.Revision}, but revision must be 0 on first insert!");
             }
 
-            var pk = _typeInfoProvider.GetPartitionKey(sagaData.GetType());
+            var pk = _partitionKeyFactory(sagaData.GetType());
             var container = await _containerFactory(sagaData.GetType()).ConfigureAwait(false);
             var doc = await Create(sagaData, container, sagaData.Id.ToString("D", CultureInfo.InvariantCulture), pk, correlationProperties);
 
@@ -167,7 +166,7 @@ namespace Rebus.CosmosDb.Sagas
 
         public async Task Update(ISagaData sagaData, IEnumerable<ISagaCorrelationProperty> correlationProperties)
         {
-            var pk = _typeInfoProvider.GetPartitionKey(sagaData.GetType());
+            var pk = _partitionKeyFactory(sagaData.GetType());
             var id = sagaData.Id.ToString("D", CultureInfo.InvariantCulture);
             var container = await _containerFactory(sagaData.GetType()).ConfigureAwait(false);
             var etag = GetEtag();
@@ -188,11 +187,11 @@ namespace Rebus.CosmosDb.Sagas
         }
 
         void SetEtag(string etag)
-            => _getContextBag()[EtagKey] = etag;
+            => _contextBagProvider.ContextBag[EtagKey] = etag;
 
         string? GetEtag()
         {
-            var ctx = _getContextBag();
+            var ctx = _contextBagProvider.ContextBag;
             if (ctx.TryGetValue(EtagKey, out var value))
                 return (string)value;
             //fix: BasicLoadAndSaveAndFindOperations.RevisionIsIncrementedOnPassedInInstanceWhenDeleting
